@@ -28,6 +28,7 @@ const Modules = (props: ModulesProps) => {
       tree: tree || [],
       value: props.value,
       onChange: props.onChange,
+      isBlockConductionWhenDisabled: false,
     })
 
   console.log(checkAllIsIndeterminate, isCheckAll)

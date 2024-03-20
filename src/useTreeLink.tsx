@@ -44,6 +44,8 @@ type ParamsType = {
     halfCheckedKeys: Array<Key>
   }
   onChange?: (value: NonNullable<ParamsType['value']>) => void
+  /** 全选时阻止传导，当父级节点为disabled 的时候 不会传导下级勾选， 反 */
+  isBlockConductionWhenDisabled?: boolean
 }
 
 export function isCheckDisabled(node: TreeLinkType['node']) {
@@ -52,7 +54,7 @@ export function isCheckDisabled(node: TreeLinkType['node']) {
 }
 
 const useTreeLink = (params: ParamsType) => {
-  const { tree, value, onChange } = params
+  const { tree, value, isBlockConductionWhenDisabled = true, onChange } = params
 
   /** 当前tree 转成map, 它是一个树，链接着他的父亲与儿子们 */
   const [treeLink, setTreeLink] = useState<Record<string, TreeLinkType>>({})
@@ -407,10 +409,10 @@ const useTreeLink = (params: ParamsType) => {
 
   const canCheckedTreeKeys = useMemo(() => {
     const tempData = Object.keys(treeLink).filter((_item) => {
-      return !treeLink[_item].parentDisabled
+      return isBlockConductionWhenDisabled ? !treeLink[_item].parentDisabled : !treeLink[_item].node.disabled
     })
     return tempData
-  }, [treeLink])
+  }, [treeLink, isBlockConductionWhenDisabled])
 
   const isCheckAll = useMemo(() => {
     return checkedKeys.length >= canCheckedTreeKeys.length
@@ -423,45 +425,91 @@ const useTreeLink = (params: ParamsType) => {
 
    /** 勾选所有可以勾选的 */
   const onCheckAllChange = () => {
-    /** 拿第一层 */
-    const firstFloor = levelTree.levelEntities.get(0)
-    if (!firstFloor) {
-      return
-    }
-
     // 如果是全选状态 并且不是半选，那么就是反选
     const checked = isCheckAll && checkAllIsIndeterminate ? false : true
-    /** 第一层开始向下勾选可以勾选的值 */
-    const changeKeys: Array<number | string> = []
-    const changeHalfKeys: Array<number | string> = []
-
-    firstFloor.forEach((entity) => {
-      if (isCheckDisabled(entity.node)) {
+    if (isBlockConductionWhenDisabled) {
+      /** 拿第一层 */
+      const firstFloor = levelTree.levelEntities.get(0)
+      if (!firstFloor) {
         return
       }
-      const result = getLatestCheckedKeys({
-        checked: checked,
-        node: entity,
+      /** 第一层开始向下勾选可以勾选的值 */
+      const changeKeys: Array<number | string> = []
+      const changeHalfKeys: Array<number | string> = []
+
+      let checkedKeysAndDisabled: Array<number | string> = []
+
+      Object.keys(treeLink).forEach((_item) => {
+        if (isCheckDisabled(treeLink[_item].node)) {
+          if (checkedKeys.includes(treeLink[_item].node.value)) {
+            checkedKeysAndDisabled.push(treeLink[_item].node.value)
+          }
+          return
+        }
       })
-      changeKeys.push(...result.checkedKeys)
-      changeHalfKeys.push(...result.halfCheckedKeys)
-    })
 
-    const formattedCheckedKeys = Array.from(new Set(changeKeys))
-    const formattedHalfCheckedKeys = Array.from(new Set(changeHalfKeys))
+      firstFloor.forEach((entity) => {
+        if (isCheckDisabled(entity.node)) {
+          return
+        }
+        const result = getLatestCheckedKeys({
+          checked: checked,
+          node: entity,
+        })
+        changeKeys.push(...result.checkedKeys)
+        changeHalfKeys.push(...result.halfCheckedKeys)
+      })
 
-    const diffedKeys = checkAllIsIndeterminate ? formattedCheckedKeys : difference(formattedCheckedKeys, checkedKeys) 
-    const diffedHalfKeys = checkAllIsIndeterminate ? formattedHalfCheckedKeys : difference(formattedHalfCheckedKeys, halfCheckedKeys)
+      const formattedCheckedKeys = Array.from(new Set(changeKeys))
+      const formattedHalfCheckedKeys = Array.from(new Set(changeHalfKeys))
 
-    trueCheckedData.current = {
-      checkedKeys: diffedKeys,
-      halfCheckedKeys: diffedHalfKeys,
-    }
+      const diffedKeys = checkAllIsIndeterminate ? formattedCheckedKeys : difference(formattedCheckedKeys, checkedKeys) 
+      const diffedHalfKeys = checkAllIsIndeterminate ? formattedHalfCheckedKeys : difference(formattedHalfCheckedKeys, halfCheckedKeys)
 
-    setCheckedKeys(diffedKeys as string[])
-    setHalfCheckedKeys(diffedHalfKeys as string[])
-    if (onChange) {
-      onChange(trueCheckedData.current)
+      const latestCheckedKeys = Array.from(new Set([...checkedKeysAndDisabled, ...diffedKeys]))
+
+      trueCheckedData.current = {
+        checkedKeys: latestCheckedKeys,
+        halfCheckedKeys: diffedHalfKeys,
+      }
+
+      setCheckedKeys(latestCheckedKeys as string[])
+      setHalfCheckedKeys(diffedHalfKeys as string[])
+      if (onChange) {
+        onChange(trueCheckedData.current)
+      }
+    } else {
+      // 尽可能拿可以勾选的，遍历treelink
+      let changeKeys: Array<number | string> = []
+      let checkedKeysAndDisabled: Array<number | string> = []
+      Object.keys(treeLink).forEach((_item) => {
+        if (isCheckDisabled(treeLink[_item].node)) {
+          if (checkedKeys.includes(treeLink[_item].node.value)) {
+            checkedKeysAndDisabled.push(treeLink[_item].node.value)
+          }
+          return
+        }
+        changeKeys.push(treeLink[_item].node.value)
+      })
+      const diffedKeys = checkAllIsIndeterminate ? changeKeys : difference(changeKeys, checkedKeys)
+      const latestCheckedKeys = Array.from(new Set([...checkedKeysAndDisabled, ...diffedKeys]))
+
+      let changeHalfKeys: Array<number | string> = []
+      latestCheckedKeys.forEach((_item) => {
+        const node = treeLink[_item]
+        if (!changeHalfKeys.includes(node.parentId as string)) {
+          changeHalfKeys.push(node.parentId as string)
+        }
+      })
+      trueCheckedData.current = {
+        checkedKeys: latestCheckedKeys,
+        halfCheckedKeys: changeHalfKeys,
+      }
+      setCheckedKeys(latestCheckedKeys as string[])
+      setHalfCheckedKeys([] as string[])
+      if (onChange) {
+        onChange(trueCheckedData.current)
+      }
     }
   }
 

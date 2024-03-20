@@ -30,7 +30,7 @@ function getDemoData() {
 
 
 export function getDisableDemoData() {
-  const DISABLE_KEYS = ['1-1-1', '1-3-4', '3-2-3', '3-3-2', '3-3', '4']
+  const DISABLE_KEYS = ['1-1-1', '1-3-4', '3-2-3', '3-3-2', '3-3', '4-1']
   function generateData(level: number, prefixPath: string) {
     const result: Data[] = []
 

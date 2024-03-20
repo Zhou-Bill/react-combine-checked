@@ -6,7 +6,11 @@ const disableData = getDisableDemoData()
 
 const DisableDemo = () => {
   return (
-    <Modules tree={disableData} />
+    <Modules tree={disableData} value={{
+      checkedKeys: ['4-1'],
+      halfCheckedKeys: []
+   
+    }}  />
   )
 }
 
