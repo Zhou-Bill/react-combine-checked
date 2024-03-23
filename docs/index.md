@@ -19,4 +19,4 @@ features:
     description: Put ! description here
 ---
 
-react-tree-combine-check
+react-combine-check

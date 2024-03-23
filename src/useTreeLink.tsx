@@ -9,6 +9,8 @@ export type TreeType = {
   _origin?: {
     [key in string]: any
   }
+} & {
+  [key in string]: any
 }
 
 type TreeLinkType = {
@@ -46,6 +48,15 @@ type ParamsType = {
   onChange?: (value: NonNullable<ParamsType['value']>) => void
   /** 全选时阻止传导，当父级节点为disabled 的时候 不会传导下级勾选， 反 */
   isBlockConductionWhenDisabled?: boolean
+  /**
+   * @default { label: 'label', value: 'value', children: 'children' }
+   * 自定义字段名
+   */
+  fieldNames?: {
+    label: string,
+    value: string
+    children: string
+  }
 }
 
 export function isCheckDisabled(node: TreeLinkType['node']) {
@@ -54,7 +65,13 @@ export function isCheckDisabled(node: TreeLinkType['node']) {
 }
 
 const useTreeLink = (params: ParamsType) => {
-  const { tree, value, isBlockConductionWhenDisabled = true, onChange } = params
+  const { 
+    tree, 
+    value, 
+    isBlockConductionWhenDisabled = true, 
+    fieldNames = {children: 'children', value: 'value', label: 'label' }, 
+    onChange 
+  } = params
 
   /** 当前tree 转成map, 它是一个树，链接着他的父亲与儿子们 */
   const [treeLink, setTreeLink] = useState<Record<string, TreeLinkType>>({})
@@ -100,7 +117,7 @@ const useTreeLink = (params: ParamsType) => {
               },
             }
           })
-          result[_item.value] = {
+          result[_item[(fieldNames.value) as 'value']] = {
             node: {
               ..._item,
               disabled: _item?.disabled ?? false,
@@ -113,7 +130,7 @@ const useTreeLink = (params: ParamsType) => {
           }
           maxLevel = level
           if (_item.children && _item.children!.length > 0) {
-            deepFlatTreeData(_item.children!, level + 1, _item.value, (_item.disabled ?? false) || disabled)
+            deepFlatTreeData(_item.children!, level + 1, _item[(fieldNames.value) as 'value'], (_item.disabled ?? false) || disabled)
           }
         })
       }
@@ -199,13 +216,13 @@ const useTreeLink = (params: ParamsType) => {
    */
   const getLatestCheckedKeys = (event: CheckedEvent) => {
     const { node, checked } = event
-    const key = node.node.value
+    const key = node.node[(fieldNames.value) as 'value']
     let result = null
     if (checked) {
       result = conductCheckTrue([...checkedKeys, key])
     } else {
       const deletedCheckedKeys = checkedKeys.filter(
-        (_item) => _item !== node.node.value,
+        (_item) => _item !== node.node[(fieldNames.value) as 'value'],
       )
       result = conductCheckFalse(deletedCheckedKeys, halfCheckedKeys)
     }
@@ -237,11 +254,11 @@ const useTreeLink = (params: ParamsType) => {
       entities.forEach((entity) => {
         const { node, children = [] } = entity
 
-        if (currentCheckedKeys.has(node.value) && !isCheckDisabled(node)) {
+        if (currentCheckedKeys.has(node[(fieldNames.value) as 'value']) && !isCheckDisabled(node)) {
           children
             .filter((childEntity) => !isCheckDisabled(childEntity.node))
             .forEach((childEntity) => {
-              currentCheckedKeys.add(childEntity.node.value)
+              currentCheckedKeys.add(childEntity.node[(fieldNames.value) as 'value'])
             })
         }
       })
@@ -260,14 +277,14 @@ const useTreeLink = (params: ParamsType) => {
         if (
           isCheckDisabled(node) ||
           !parentNode ||
-          visitedKeys.has(parentNode.value)
+          visitedKeys.has(parentNode[(fieldNames.value) as 'value'])
         ) {
           return
         }
 
         // 如果上级节点不能勾选
         if (isCheckDisabled(parentNode)) {
-          visitedKeys.add(parentNode.value)
+          visitedKeys.add(parentNode[(fieldNames.value) as 'value'])
           return
         }
 
@@ -278,7 +295,8 @@ const useTreeLink = (params: ParamsType) => {
         /** 如果父级节点下的children 都被勾选了，那么表示父级节点也应该加到checkedKey, 否则加入到半选 */
         ;(parentNode.children || [])
           .filter((childEntity) => !isCheckDisabled(childEntity))
-          .forEach(({ value }) => {
+          .forEach((_child) => {
+            const value = _child[fieldNames.value as 'value']
             const checked = currentCheckedKeys.has(value)
             /** 当前有一个子节点没被勾选，表示父亲下的儿子没有被全选，父亲不应加入checkedKey */
             if (allChecked && !checked) {
@@ -293,13 +311,13 @@ const useTreeLink = (params: ParamsType) => {
           })
 
         if (allChecked) {
-          currentCheckedKeys.add(parentNode.value)
+          currentCheckedKeys.add(parentNode[(fieldNames.value) as 'value'])
         }
         if (partialChecked) {
-          currentHalfCheckedKeys.add(parentNode.value)
+          currentHalfCheckedKeys.add(parentNode[(fieldNames.value) as 'value'])
         }
 
-        visitedKeys.add(parentNode.value)
+        visitedKeys.add(parentNode[(fieldNames.value) as 'value'])
       })
     }
 
@@ -323,14 +341,14 @@ const useTreeLink = (params: ParamsType) => {
 
         /** 如果当前节点没有勾选，且没有在半选下，那么他的子级应该被清空 */
         if (
-          !checkedKeys.has(node.value) &&
-          !halfCheckedKeys.has(node.value) &&
+          !checkedKeys.has(node[(fieldNames.value) as 'value']) &&
+          !halfCheckedKeys.has(node[(fieldNames.value) as 'value']) &&
           !isCheckDisabled(node)
         ) {
           children
             .filter((childEntity) => !isCheckDisabled(childEntity.node))
             .forEach((childEntity) => {
-              checkedKeys.delete(childEntity.node.value)
+              checkedKeys.delete(childEntity.node[(fieldNames.value) as 'value'])
             })
         }
       })
@@ -349,13 +367,13 @@ const useTreeLink = (params: ParamsType) => {
         if (
           isCheckDisabled(node) ||
           !parentNode ||
-          visitedKeys.has(parentNode.value)
+          visitedKeys.has(parentNode[(fieldNames.value) as 'value'])
         ) {
           return
         }
 
         if (isCheckDisabled(parentNode)) {
-          visitedKeys.add(parentNode.value)
+          visitedKeys.add(parentNode[(fieldNames.value) as 'value'])
           return
         }
 
@@ -364,7 +382,8 @@ const useTreeLink = (params: ParamsType) => {
 
         ;(parentNode.children || [])
           .filter((childEntity) => !isCheckDisabled(childEntity))
-          .forEach(({ value }) => {
+          .forEach((_child) => {
+            const value = _child[(fieldNames.value) as 'value']
             const checked = checkedKeys.has(value)
             if (allChecked && !checked) {
               allChecked = false
@@ -375,13 +394,13 @@ const useTreeLink = (params: ParamsType) => {
           })
 
         if (!allChecked) {
-          checkedKeys.delete(parentNode.value)
+          checkedKeys.delete(parentNode[(fieldNames.value) as 'value'])
         }
         if (partialChecked) {
-          halfCheckedKeys.add(parentNode.value)
+          halfCheckedKeys.add(parentNode[(fieldNames.value) as 'value'])
         }
 
-        visitedKeys.add(parentNode.value)
+        visitedKeys.add(parentNode[(fieldNames.value) as 'value'])
       })
     }
 
