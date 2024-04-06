@@ -52,4 +52,26 @@ export function getDisableDemoData() {
   return result
 }
 
+const more = [4, 5, 6, 1, 2, 3, 4, 50]
+export function getMoreData() {
+  function generateData(level: number, prefixPath: string) {
+    const result: Data[] = []
+
+    for (let i = 0; i < more[level]; i++) {
+      const path = prefixPath ? `${prefixPath}-${i + 1}` : `${i + 1}`
+      const temp: Data = {
+        label: path,
+        value: `${path}`,
+        children: generateData(level + 1, path)
+      }
+      result.push(temp)
+    }
+
+    return result
+  }
+
+  const result = generateData(0, '')
+  return result
+}
+
 export default getDemoData()
