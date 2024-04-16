@@ -153,6 +153,10 @@ const useTreeLink = (params: ParamsType) => {
     if (checkedKeys?.length === 0 && halfCheckedKeys?.length === 0) {
       setCheckedKeys([])
       setHalfCheckedKeys([])
+      trueCheckedData.current = {
+        checkedKeys: [],
+        halfCheckedKeys: [],
+      }
       return
     }
 
